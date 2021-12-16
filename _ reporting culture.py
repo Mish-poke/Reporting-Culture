@@ -10,7 +10,8 @@ refreshNamesForMasterAndCEPerDay = False
 refreshShipsPerDayForEach_MASTER = False
 refreshShipsPerDayForEach_CE = False
 
-refreshOnboardHistoryMaster = True
+refreshOnboardHistoryMaster = False
+refreshOnboardHistoryCE = True
 flag_onBoardHistory_dayCount = "DayOnBoard"
 
 path_db_masters = r'E:\001_CMG\HOME\Reporting Culture\_ db MASTERs.csv'
@@ -26,6 +27,9 @@ path_nameOfCEForEachShipPerDay = r'E:\003_Python_CMG\008_Reporting_Culture\Repor
 
 path_nameShipsPerDayForEach_MASTER = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\db_whoWasOnBoardOfWhatShipByDay_CPT.csv'
 path_nameShipsPerDayForEach_CE = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\db_whoWasOnBoardOfWhatShipByDay_CE.csv'
+
+path_nameIncidentDevelopment_MASTER = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\db_onBoardHistory_MASTER.csv'
+path_nameIncidentDevelopment_CE = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\db_onBoardHistory_CE.csv'
 
 flag_MasterCE_name = "Crew Member"
 # Contract Position;
@@ -476,31 +480,77 @@ def func_loopIncidents(
         df_whoWasOnBoardOfWhatShipByDay_CE = pd.read_csv(path_nameShipsPerDayForEach_CE, sep=";")
     # endregion
 
-
+    logDetails = False
+    #region fill dataframe with incident development during board stays
     if refreshOnboardHistoryMaster:
-        for thisMaster in df_whoWasOnBoardOfWhatShipByDay_CPT.columns:
+        for thisMaster in df_whoWasOnBoardOfWhatShipByDay_CPT.columns.unique():
             print("get history over time for thisMaster " + thisMaster)
             cntDaysOnBoard = 0
             totalIncidentsThisCpt = 1
-            for thisDay in df_whoWasOnBoardOfWhatShipByDay_CPT.index:
-                if df_whoWasOnBoardOfWhatShipByDay_CPT.loc[thisDay, thisMaster] not in listOfShips:
+            for ap in df_whoWasOnBoardOfWhatShipByDay_CPT.index:
+                if logDetails:
+                    print("ship @ line " + str(ap) + " = " + str(df_whoWasOnBoardOfWhatShipByDay_CPT.loc[ap, thisMaster]))
+                if df_whoWasOnBoardOfWhatShipByDay_CPT.loc[ap, thisMaster] not in listOfShips:
                     continue
+
+                thisDate = df_whoWasOnBoardOfWhatShipByDay_CPT.loc[ap, flag_result_date]
+                if logDetails:
+                    print(thisMaster + " was on board @ " + str(thisDate))
 
                 cntDaysOnBoard += 1
 
-                thisDate = df_whoWasOnBoardOfWhatShipByDay_CPT.loc[thisDay, flag_result_date].strftime('%Y-%m-%d')
-
-                totalIncidentsThisCpt = totalIncidentsThisCpt + \
-                                        df_newCasesPerDay_ByCpt[(
-                                            df_newCasesPerDay_ByCpt[flag_result_date] == thisDate
-                                        ), thisMaster].sum()
+                totalIncidentsThisCpt = \
+                    totalIncidentsThisCpt + \
+                        df_newCasesPerDay_ByCpt.loc[
+                            (df_newCasesPerDay_ByCpt[flag_result_date] == thisDate),
+                            thisMaster
+                        ].sum()
 
                 print("totalIncidentsThisCpt " + str(totalIncidentsThisCpt))
 
-                df_onBoardHistory_MASTER.loc[totalIncidentsThisCpt, thisMaster] = totalIncidentsThisCpt
+                df_onBoardHistory_MASTER.loc[cntDaysOnBoard, thisMaster] = totalIncidentsThisCpt
 
         df_onBoardHistory_MASTER.to_csv("db_onBoardHistory_MASTER.csv", sep=";", index=False)
-    # , df_onBoardHistory_CE,
+    else:
+        df_onBoardHistory_MASTER = pd.read_csv(path_nameIncidentDevelopment_MASTER, sep=";")
+    #endregion
+
+    logDetails = False
+    # region fill dataframe with incident development during board stays
+    if refreshOnboardHistoryCE:
+        for thisCE in df_whoWasOnBoardOfWhatShipByDay_CE.columns.unique():
+            print("get history over time for thisCE " + thisCE)
+            cntDaysOnBoard = 0
+            totalIncidentsThisCE = 1
+            for ap in df_whoWasOnBoardOfWhatShipByDay_CE.index:
+                if logDetails:
+                    print(
+                        "ship @ line " + str(ap) + " = " + str(df_whoWasOnBoardOfWhatShipByDay_CE.loc[ap, thisCE]))
+                if df_whoWasOnBoardOfWhatShipByDay_CE.loc[ap, thisCE] not in listOfShips:
+                    continue
+
+                thisDate = df_whoWasOnBoardOfWhatShipByDay_CE.loc[ap, flag_result_date]
+                if logDetails:
+                    print(thisCE + " was on board @ " + str(thisDate))
+
+                cntDaysOnBoard += 1
+
+                totalIncidentsThisCE = \
+                    totalIncidentsThisCE + \
+                    df_newCasesPerDay_ByCE.loc[
+                        (df_newCasesPerDay_ByCE[flag_result_date] == thisDate),
+                        thisCE
+                    ].sum()
+
+                if logDetails:
+                    print("totalIncidentsThisCE " + str(totalIncidentsThisCE))
+
+                df_onBoardHistory_CE.loc[cntDaysOnBoard, thisCE] = totalIncidentsThisCE
+
+        df_onBoardHistory_CE.to_csv("db_onBoardHistory_CE.csv", sep=";", index=False)
+    else:
+        df_onBoardHistory_CE = pd.read_csv(path_nameIncidentDevelopment_CE, sep=";")
+    # endregion
 
     return \
         df_newCasesPerDay_ByShip, df_newCasesPerDay_ByCpt, df_newCasesPerDay_ByCE, \
