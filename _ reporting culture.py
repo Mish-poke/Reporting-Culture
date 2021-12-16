@@ -8,7 +8,10 @@ refreshCumulativeViews = False
 refreshNamesForMasterAndCEPerDay = False
 
 refreshShipsPerDayForEach_MASTER = False
-refreshShipsPerDayForEach_CE = True
+refreshShipsPerDayForEach_CE = False
+
+refreshOnboardHistoryMaster = True
+flag_onBoardHistory_dayCount = "DayOnBoard"
 
 path_db_masters = r'E:\001_CMG\HOME\Reporting Culture\_ db MASTERs.csv'
 path_db_CEs =  r'E:\001_CMG\HOME\Reporting Culture\_ db CEs.csv'
@@ -192,12 +195,27 @@ def func_loopIncidents(
     df_newCasesPerDay_ByCE,
     df_activeMasterDayByDayByName, df_activeCEDayByDayByName,
     df_whoWasOnBoardOfWhatShipByDay_CPT, df_whoWasOnBoardOfWhatShipByDay_CE,
-    df_uptrend_Masters
+    df_onBoardHistory_MASTER, df_onBoardHistory_CE
 ):
     sr = pd.Series(pd.date_range(startDate, periods=1735, freq='D'))
 
     #region prepare daily structure
+    dayCount = 0
     for thisDay in sr.index:
+        dayCount+=1
+
+        df_onBoardHistory_MASTER = df_onBoardHistory_MASTER.append(
+            {
+                flag_onBoardHistory_dayCount: dayCount
+            }, ignore_index=True
+        )
+
+        df_onBoardHistory_CE = df_onBoardHistory_CE.append(
+            {
+                flag_onBoardHistory_dayCount: dayCount
+            }, ignore_index=True
+        )
+
         if thisDay < sr.index.max():
             thisDate = (startDate + timedelta(days=thisDay)).strftime('%Y-%m-%d')
             # print("thisDay: " + str(thisDate))
@@ -261,6 +279,7 @@ def func_loopIncidents(
     for thisCPT in df_masters[flag_MasterCE_name].unique():
         df_newCasesPerDay_ByCpt[thisCPT] = 0
         df_whoWasOnBoardOfWhatShipByDay_CPT[thisCPT] = 0
+        df_onBoardHistory_MASTER[thisCPT] = 0
 
     print(df_newCasesPerDay_ByCpt.head(5))
     #endregion
@@ -270,6 +289,7 @@ def func_loopIncidents(
     for thisCE in df_ces[flag_MasterCE_name].unique():
         df_newCasesPerDay_ByCE[thisCE] = 0
         df_whoWasOnBoardOfWhatShipByDay_CE[thisCE] = 0
+        df_onBoardHistory_CE[thisCE] = 0
 
     print(df_newCasesPerDay_ByCE.head(5))
     #endregion
@@ -456,6 +476,32 @@ def func_loopIncidents(
         df_whoWasOnBoardOfWhatShipByDay_CE = pd.read_csv(path_nameShipsPerDayForEach_CE, sep=";")
     # endregion
 
+
+    if refreshOnboardHistoryMaster:
+        for thisMaster in df_whoWasOnBoardOfWhatShipByDay_CPT.columns:
+            print("get history over time for thisMaster " + thisMaster)
+            cntDaysOnBoard = 0
+            totalIncidentsThisCpt = 1
+            for thisDay in df_whoWasOnBoardOfWhatShipByDay_CPT.index:
+                if df_whoWasOnBoardOfWhatShipByDay_CPT.loc[thisDay, thisMaster] not in listOfShips:
+                    continue
+
+                cntDaysOnBoard += 1
+
+                thisDate = df_whoWasOnBoardOfWhatShipByDay_CPT.loc[thisDay, flag_result_date].strftime('%Y-%m-%d')
+
+                totalIncidentsThisCpt = totalIncidentsThisCpt + \
+                                        df_newCasesPerDay_ByCpt[(
+                                            df_newCasesPerDay_ByCpt[flag_result_date] == thisDate
+                                        ), thisMaster].sum()
+
+                print("totalIncidentsThisCpt " + str(totalIncidentsThisCpt))
+
+                df_onBoardHistory_MASTER.loc[totalIncidentsThisCpt, thisMaster] = totalIncidentsThisCpt
+
+        df_onBoardHistory_MASTER.to_csv("db_onBoardHistory_MASTER.csv", sep=";", index=False)
+    # , df_onBoardHistory_CE,
+
     return \
         df_newCasesPerDay_ByShip, df_newCasesPerDay_ByCpt, df_newCasesPerDay_ByCE, \
         df_activeMasterDayByDayByName, df_activeCEDayByDayByName
@@ -498,7 +544,8 @@ df_activeCEDayByDayByName = pd.DataFrame()
 df_whoWasOnBoardOfWhatShipByDay_CPT = pd.DataFrame()
 df_whoWasOnBoardOfWhatShipByDay_CE = pd.DataFrame()
 
-df_uptrend_Masters = pd.DataFrame()
+df_onBoardHistory_MASTER = pd.DataFrame()
+df_onBoardHistory_CE = pd.DataFrame()
 
 df_masters, df_ces, df_incidents = func_readSourceData(df_masters, df_ces, df_incidents)
 
@@ -510,7 +557,7 @@ df_activeMasterDayByDayByName, df_activeCEDayByDayByName = \
         df_newCasesPerDay_ByShip, df_newCasesPerDay_ByCpt, df_newCasesPerDay_ByCE,
         df_activeMasterDayByDayByName, df_activeCEDayByDayByName,
         df_whoWasOnBoardOfWhatShipByDay_CPT, df_whoWasOnBoardOfWhatShipByDay_CE,
-        df_uptrend_Masters
+        df_onBoardHistory_MASTER, df_onBoardHistory_CE
     )
 
 
