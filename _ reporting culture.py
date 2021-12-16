@@ -11,7 +11,7 @@ refreshShipsPerDayForEach_MASTER = False
 refreshShipsPerDayForEach_CE = False
 
 refreshOnboardHistoryMaster = False
-refreshOnboardHistoryCE = True
+refreshOnboardHistoryCE = False
 flag_onBoardHistory_dayCount = "DayOnBoard"
 
 path_db_masters = r'E:\001_CMG\HOME\Reporting Culture\_ db MASTERs.csv'
@@ -138,13 +138,13 @@ def func_readSourceData(
     #endregion
 
     #region convert time stamps
-    df_masters[flag_MasterCE_embarkDate] = pd.to_datetime(df_masters[flag_MasterCE_embarkDate], format='%d.%m.%Y')#.strftime('%Y.%m.%d')#.astype('datetime64[ns]')
-    df_masters[flag_MasterCE_disembarkDate] = pd.to_datetime(df_masters[flag_MasterCE_disembarkDate], format='%d.%m.%Y')#.strftime('%Y.%m.%d')#.astype('datetime64[ns]')
+    df_masters[flag_MasterCE_embarkDate] = pd.to_datetime(df_masters[flag_MasterCE_embarkDate], format='%d.%m.%Y')
+    df_masters[flag_MasterCE_disembarkDate] = pd.to_datetime(df_masters[flag_MasterCE_disembarkDate], format='%d.%m.%Y')
 
-    df_ces[flag_MasterCE_embarkDate] = pd.to_datetime(df_ces[flag_MasterCE_embarkDate], format='%d.%m.%Y')#.strftime('%Y.%m.%d')#.astype('datetime64[ns]')
-    df_ces[flag_MasterCE_disembarkDate] = pd.to_datetime(df_ces[flag_MasterCE_disembarkDate], format='%d.%m.%Y')#.strftime('%Y.%m.%d')#.astype('datetime64[ns]')
+    df_ces[flag_MasterCE_embarkDate] = pd.to_datetime(df_ces[flag_MasterCE_embarkDate], format='%d.%m.%Y')
+    df_ces[flag_MasterCE_disembarkDate] = pd.to_datetime(df_ces[flag_MasterCE_disembarkDate], format='%d.%m.%Y')
 
-    df_incidents[flag_incidents_date] = pd.to_datetime(df_incidents[flag_incidents_date], format='%Y-%m-%d')#.strftime('%Y.%m.%d')#.astype('datetime64[ns]')
+    df_incidents[flag_incidents_date] = pd.to_datetime(df_incidents[flag_incidents_date], format='%Y-%m-%d')
 
     df_incidents.loc[
         (df_incidents[flag_incidents_dateShoreSideSubmit] == "NaT"),
@@ -165,24 +165,6 @@ def func_readSourceData(
     df_incidents[flag_incidents_dateShoreSideSubmit] = pd.to_datetime(df_incidents[flag_incidents_dateShoreSideSubmit],
                                                        format='%Y-%m-%d')  # .strftime('%Y.%m.%d')#.astype('datetime64[ns]')
     #endregion
-
-    # thisMaster = df_masters[
-    #     (testDate > df_masters[flag_MasterCE_embarkDate]) &
-    #     (testDate <= df_masters[flag_MasterCE_disembarkDate]) &
-    #     (df_masters[flag_MasterCE_ship] == "SERENA")
-    #     ].iloc[0][flag_MasterCE_name]
-    #
-    # df_masters.to_csv("df_masters_TEST.csv", sep=";")
-    # #
-    # subDF = df_masters[
-    #     (testDate > df_masters[flag_MasterCE_embarkDate]) &
-    #     (testDate <= df_masters[flag_MasterCE_disembarkDate]) &
-    #     (df_masters[flag_MasterCE_ship] == "SERENA")
-    #     ]
-
-    # print("len subdf" + str(subDF.shape[0]))
-
-    # print("thisMaster: " + thisMaster)
 
     print(df_masters.head(5))
     print(df_ces.head(5))
