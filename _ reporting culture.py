@@ -2,6 +2,14 @@ import pandas as pd
 import datetime
 from datetime import timedelta
 
+useEventDate = False
+refreshAmountOfIncidentsPerDay = False
+refreshCumulativeViews = False
+refreshNamesForMasterAndCEPerDay = False
+
+refreshShipsPerDayForEach_MASTER = False
+refreshShipsPerDayForEach_CE = True
+
 path_db_masters = r'E:\001_CMG\HOME\Reporting Culture\_ db MASTERs.csv'
 path_db_CEs =  r'E:\001_CMG\HOME\Reporting Culture\_ db CEs.csv'
 path_db_incidents =  r'E:\001_CMG\HOME\Reporting Culture\_ db CMG_Incidents.xlsx'
@@ -12,6 +20,9 @@ path_newIncidentsPerDayPerCE = r'E:\003_Python_CMG\008_Reporting_Culture\Reporti
 
 path_nameOfMasterForEachShipPerDay = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\df_activeMasterDayByDayByName.csv'
 path_nameOfCEForEachShipPerDay = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\df_activeCEDayByDayByName.csv'
+
+path_nameShipsPerDayForEach_MASTER = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\db_whoWasOnBoardOfWhatShipByDay_CPT.csv'
+path_nameShipsPerDayForEach_CE = r'E:\003_Python_CMG\008_Reporting_Culture\Reporting-Culture\db_whoWasOnBoardOfWhatShipByDay_CE.csv'
 
 flag_MasterCE_name = "Crew Member"
 # Contract Position;
@@ -24,6 +35,7 @@ flag_MasterCE_daysOnboard = "Embark Days"
 
 flag_incidents_Brand = "Operating Line"
 flag_incidents_date = "Event Date"
+flag_incidents_dateShoreSideSubmit = "Submitted for Shoreside Review Date"
 flag_incidents_Ship = "SHIP"
 
 flag_result_date = "Date"
@@ -31,6 +43,41 @@ flag_result_date = "Date"
 startDate = datetime.datetime(2017, 1, 1, 0, 0, 0)
 
 testDate = datetime.datetime(2017, 4, 17, 0, 0, 0)
+
+listOfShips = [
+    "AIDABELLA",
+    "AIDALUNA",
+    "AIDAAURA",
+    "AIDAMAR",
+    "AIDASTELLA",
+    "AIDASOL",
+    "AIDABLU",
+    "AIDACARA",
+    "AIDAPERLA",
+    "AIDANOVA",
+    "AIDAPRIMA",
+    "AIDADIVA",
+    "AIDAVITA",
+    "AIDAMIRA",
+    "DELIZIOSA",
+    "ATLANTICA",
+    "SERENA",
+    "FASCINOSA",
+    "MEDITERRANEA",
+    "SMERALDA",
+    "NEOROMANTICA",
+    "NEORIVIERA",
+    "NEOCLASSICA",
+    "PACIFICA",
+    "MAGICA",
+    "FORTUNA",
+    "VICTORIA",
+    "LUMINOSA",
+    "FAVOLOSA",
+    "DIADEMA",
+    "FIRENZE",
+    "VENEZIA",
+]
 
 ' #####################################################################################################################'
 def func_readSourceData(
@@ -91,6 +138,25 @@ def func_readSourceData(
     df_ces[flag_MasterCE_disembarkDate] = pd.to_datetime(df_ces[flag_MasterCE_disembarkDate], format='%d.%m.%Y')#.strftime('%Y.%m.%d')#.astype('datetime64[ns]')
 
     df_incidents[flag_incidents_date] = pd.to_datetime(df_incidents[flag_incidents_date], format='%Y-%m-%d')#.strftime('%Y.%m.%d')#.astype('datetime64[ns]')
+
+    df_incidents.loc[
+        (df_incidents[flag_incidents_dateShoreSideSubmit] == "NaT"),
+        flag_incidents_dateShoreSideSubmit
+    ] = df_incidents.loc[
+        (df_incidents[flag_incidents_dateShoreSideSubmit] == "NaT"),
+        flag_incidents_date
+    ]
+
+    df_incidents.loc[
+        (df_incidents[flag_incidents_dateShoreSideSubmit] == "InfoSHIP Statement not issued, despite being chased"),
+        flag_incidents_dateShoreSideSubmit
+    ] = df_incidents.loc[
+        (df_incidents[flag_incidents_dateShoreSideSubmit] == "InfoSHIP Statement not issued, despite being chased"),
+        flag_incidents_date
+    ]
+
+    df_incidents[flag_incidents_dateShoreSideSubmit] = pd.to_datetime(df_incidents[flag_incidents_dateShoreSideSubmit],
+                                                       format='%Y-%m-%d')  # .strftime('%Y.%m.%d')#.astype('datetime64[ns]')
     #endregion
 
     # thisMaster = df_masters[
@@ -119,13 +185,13 @@ def func_readSourceData(
 
 ' #####################################################################################################################'
 def func_loopIncidents(
-    df_masters,
-    df_ces,
-    df_incidents,
+    df_masters, df_ces, df_incidents,
+    flag_eventReferenceTime,
     df_newCasesPerDay_ByShip,
     df_newCasesPerDay_ByCpt,
     df_newCasesPerDay_ByCE,
     df_activeMasterDayByDayByName, df_activeCEDayByDayByName,
+    df_whoWasOnBoardOfWhatShipByDay_CPT, df_whoWasOnBoardOfWhatShipByDay_CE,
     df_uptrend_Masters
 ):
     sr = pd.Series(pd.date_range(startDate, periods=1735, freq='D'))
@@ -165,41 +231,66 @@ def func_loopIncidents(
                     flag_result_date: thisDate
                 }, ignore_index=True
             )
+
+            df_whoWasOnBoardOfWhatShipByDay_CPT = df_whoWasOnBoardOfWhatShipByDay_CPT.append(
+                {
+                    flag_result_date: thisDate
+                }, ignore_index=True
+            )
+
+            df_whoWasOnBoardOfWhatShipByDay_CE = df_whoWasOnBoardOfWhatShipByDay_CE.append(
+                {
+                    flag_result_date: thisDate
+                }, ignore_index=True
+            )
     #endregion
 
+    #region prepare blank columns by ship
     df_newCasesPerDay_ByShip = df_newCasesPerDay_ByShip.reset_index(drop=True)
     for thisShip in df_incidents[flag_incidents_Ship].unique():
         df_newCasesPerDay_ByShip[thisShip] = 0
         df_activeMasterDayByDayByName[thisShip] = ""
         df_activeCEDayByDayByName[thisShip] = ""
 
-    print(df_newCasesPerDay_ByShip.head(5))
 
+    print(df_newCasesPerDay_ByShip.head(5))
+    #endregion
+
+    #region prepare header by CPT
     df_newCasesPerDay_ByCpt = df_newCasesPerDay_ByCpt.reset_index(drop=True)
     for thisCPT in df_masters[flag_MasterCE_name].unique():
         df_newCasesPerDay_ByCpt[thisCPT] = 0
+        df_whoWasOnBoardOfWhatShipByDay_CPT[thisCPT] = 0
 
     print(df_newCasesPerDay_ByCpt.head(5))
+    #endregion
 
+    #region prepare header by CE
     df_newCasesPerDay_ByCE = df_newCasesPerDay_ByCE.reset_index(drop=True)
     for thisCE in df_ces[flag_MasterCE_name].unique():
         df_newCasesPerDay_ByCE[thisCE] = 0
+        df_whoWasOnBoardOfWhatShipByDay_CE[thisCE] = 0
 
     print(df_newCasesPerDay_ByCE.head(5))
+    #endregion
 
-    refreshAmountOfIncidentsPerDay = False
     logDetails = False
     #region create dataframe with new cases per day by MASTER CE SHIP
     if refreshAmountOfIncidentsPerDay:
         lines = df_incidents.index.max()
         for ap in df_incidents.index:
-            incidentDate = df_incidents.loc[ap, flag_incidents_date].strftime('%Y-%m-%d')
+            try:
+                incidentDate = df_incidents.loc[ap, flag_eventReferenceTime].strftime('%Y-%m-%d')
+            except:
+                print("that is no valid date: " +str(df_incidents.loc[ap, flag_eventReferenceTime]))
+                continue
+
             incidentShip = df_incidents.loc[ap, flag_incidents_Ship]
             print("incident @ " + str(incidentDate) + " on board " + incidentShip)
 
             try:
                 thisMaster = df_masters[
-                    (incidentDate > df_masters[flag_MasterCE_embarkDate]) &
+                    (incidentDate >= df_masters[flag_MasterCE_embarkDate]) &
                     (incidentDate <= df_masters[flag_MasterCE_disembarkDate]) &
                     (df_masters[flag_MasterCE_ship] == incidentShip)
                 ].iloc[0][flag_MasterCE_name]
@@ -209,7 +300,7 @@ def func_loopIncidents(
 
             try:
                 thisCE = df_ces[
-                    (incidentDate > df_ces[flag_MasterCE_embarkDate]) &
+                    (incidentDate >= df_ces[flag_MasterCE_embarkDate]) &
                     (incidentDate <= df_ces[flag_MasterCE_disembarkDate]) &
                     (df_ces[flag_MasterCE_ship] == incidentShip)
                     ].iloc[0][flag_MasterCE_name]
@@ -238,7 +329,6 @@ def func_loopIncidents(
         df_newCasesPerDay_ByShip.to_csv("db_newIncidentsPerDay_PerShip.csv", sep=";", index=False)
         df_newCasesPerDay_ByCpt.to_csv("db_newIncidentsPerDay_PerMaster.csv", sep=";", index=False)
         df_newCasesPerDay_ByCE.to_csv("db_newIncidentsPerDay_PerCE.csv", sep=";", index=False)
-
     else:
         print("read available data")
         df_newCasesPerDay_ByShip = pd.read_csv(path_newIncidentsPerDayPerShip, sep=";")
@@ -247,7 +337,6 @@ def func_loopIncidents(
 
     #endregion
 
-    refreshNamesForMasterAndCEPerDay = False
     logDetails = False
     #region get master and ce for each and every day per ship
     if refreshNamesForMasterAndCEPerDay:
@@ -262,7 +351,7 @@ def func_loopIncidents(
                 foundMaster = True
                 try:
                     thisMaster = df_masters[
-                        (thisDate > df_masters[flag_MasterCE_embarkDate]) &
+                        (thisDate >= df_masters[flag_MasterCE_embarkDate]) &
                         (thisDate <= df_masters[flag_MasterCE_disembarkDate]) &
                         (df_masters[flag_MasterCE_ship] == thisShip)
                         ].iloc[0][flag_MasterCE_name]
@@ -275,7 +364,7 @@ def func_loopIncidents(
                 foundCE = True
                 try:
                     thisCE = df_ces[
-                        (thisDate > df_ces[flag_MasterCE_embarkDate]) &
+                        (thisDate >= df_ces[flag_MasterCE_embarkDate]) &
                         (thisDate <= df_ces[flag_MasterCE_disembarkDate]) &
                         (df_ces[flag_MasterCE_ship] == thisShip)
                         ].iloc[0][flag_MasterCE_name]
@@ -310,30 +399,95 @@ def func_loopIncidents(
         df_activeCEDayByDayByName = pd.read_csv(path_nameOfCEForEachShipPerDay, sep=";")
     #endregion
 
+    logDetails = True
+    #region get ships name for every day for each master
+    if refreshShipsPerDayForEach_MASTER:
+        for ap in df_masters.index:
+            thisRun_ship = df_masters.loc[ap, flag_MasterCE_ship]
+            if thisRun_ship not in listOfShips:
+                continue
+
+            thisRun_master = df_masters.loc[ap, flag_MasterCE_name]
+            thisRun_onDay = df_masters.loc[ap, flag_MasterCE_embarkDate].strftime('%Y-%m-%d')
+            thisRun_offDay = df_masters.loc[ap, flag_MasterCE_disembarkDate].strftime('%Y-%m-%d')
+
+            if logDetails:
+                print("fill master for this run " + "\n" +
+                      "thisRun_master: " + thisRun_master + " // " + thisRun_ship + " // " + str(thisRun_onDay) + " - " + str(thisRun_offDay))
+
+            if thisRun_master in df_whoWasOnBoardOfWhatShipByDay_CPT.columns:
+                df_whoWasOnBoardOfWhatShipByDay_CPT.loc[
+                    (df_whoWasOnBoardOfWhatShipByDay_CPT[flag_result_date] >= thisRun_onDay) &
+                    (df_whoWasOnBoardOfWhatShipByDay_CPT[flag_result_date] <= thisRun_offDay),
+                    thisRun_master
+                ] = thisRun_ship
+
+        df_whoWasOnBoardOfWhatShipByDay_CPT.to_csv("db_whoWasOnBoardOfWhatShipByDay_CPT.csv", sep = ";", index=False)
+    else:
+        df_whoWasOnBoardOfWhatShipByDay_CPT = pd.read_csv(path_nameShipsPerDayForEach_MASTER, sep=";")
+    #endregion
+
+    logDetails = True
+    # region get ships name for every day for each master
+    if refreshShipsPerDayForEach_CE:
+        for ap in df_ces.index:
+            thisRun_ship = df_ces.loc[ap, flag_MasterCE_ship]
+            if thisRun_ship not in listOfShips:
+                continue
+
+            thisRun_ce = df_ces.loc[ap, flag_MasterCE_name]
+            thisRun_onDay = df_ces.loc[ap, flag_MasterCE_embarkDate].strftime('%Y-%m-%d')
+            thisRun_offDay = df_ces.loc[ap, flag_MasterCE_disembarkDate].strftime('%Y-%m-%d')
+
+            if logDetails:
+                print("fill ce for this run " + "\n" +
+                      "thisRun_ce: " + thisRun_ce + " // " + thisRun_ship + " // " + str(
+                    thisRun_onDay) + " - " + str(thisRun_offDay))
+
+            if thisRun_ce in df_whoWasOnBoardOfWhatShipByDay_CE.columns:
+                df_whoWasOnBoardOfWhatShipByDay_CE.loc[
+                    (df_whoWasOnBoardOfWhatShipByDay_CE[flag_result_date] >= thisRun_onDay) &
+                    (df_whoWasOnBoardOfWhatShipByDay_CE[flag_result_date] <= thisRun_offDay),
+                    thisRun_ce
+                ] = thisRun_ship
+
+        df_whoWasOnBoardOfWhatShipByDay_CE.to_csv("db_whoWasOnBoardOfWhatShipByDay_CE.csv", sep=";", index=False)
+    else:
+        df_whoWasOnBoardOfWhatShipByDay_CE = pd.read_csv(path_nameShipsPerDayForEach_CE, sep=";")
+    # endregion
+
     return \
-        df_newCasesPerDay_ByShip, df_newCasesPerDay_ByCpt, df_newCasesPerDay_ByCE,
+        df_newCasesPerDay_ByShip, df_newCasesPerDay_ByCpt, df_newCasesPerDay_ByCE, \
         df_activeMasterDayByDayByName, df_activeCEDayByDayByName
 
 ' #####################################################################################################################'
 def func_buildCumulativeView(
     thisDF,
+    byWhat
 ):
+    print("buil cumulative view for " + byWhat)
+
     for ap in thisDF.index:
         if ap > 1:
             for thisColumn in thisDF.columns:
                 if thisColumn != flag_result_date:
                     thisDF.loc[ap, thisColumn] = thisDF.loc[ap-1, thisColumn] + thisDF.loc[ap, thisColumn]
 
-    thisDF.to_csv("df_result_by_ship_cumulative.csv", sep=";", index = False)
+    thisDF.to_csv("df_incidentsPerDayCumulative_"+ byWhat + ".csv", sep=";", index = False)
 
 ' #####################################################################################################################'
 ' #####################################################################################################################'
 ' #####################################################################################################################'
 
+if useEventDate:
+    flag_eventReferenceTime = flag_incidents_date
+else:
+    flag_eventReferenceTime = flag_incidents_dateShoreSideSubmit
 
 df_masters = pd.DataFrame()
 df_ces = pd.DataFrame()
 df_incidents = pd.DataFrame()
+
 df_newCasesPerDay_ByShip = pd.DataFrame()
 df_newCasesPerDay_ByCpt = pd.DataFrame()
 df_newCasesPerDay_ByCE = pd.DataFrame()
@@ -341,10 +495,8 @@ df_newCasesPerDay_ByCE = pd.DataFrame()
 df_activeMasterDayByDayByName = pd.DataFrame()
 df_activeCEDayByDayByName = pd.DataFrame()
 
-df_newCasesPerDay_ByShip = pd.DataFrame()
-df_newCasesPerDay_ByCpt = pd.DataFrame()
-
-df_result_by_ce_cumulative = pd.DataFrame()
+df_whoWasOnBoardOfWhatShipByDay_CPT = pd.DataFrame()
+df_whoWasOnBoardOfWhatShipByDay_CE = pd.DataFrame()
 
 df_uptrend_Masters = pd.DataFrame()
 
@@ -354,9 +506,17 @@ df_newCasesPerDay_ByShip, df_newCasesPerDay_ByCpt, df_newCasesPerDay_ByCE, \
 df_activeMasterDayByDayByName, df_activeCEDayByDayByName = \
     func_loopIncidents(
         df_masters, df_ces, df_incidents,
+        flag_eventReferenceTime,
         df_newCasesPerDay_ByShip, df_newCasesPerDay_ByCpt, df_newCasesPerDay_ByCE,
         df_activeMasterDayByDayByName, df_activeCEDayByDayByName,
+        df_whoWasOnBoardOfWhatShipByDay_CPT, df_whoWasOnBoardOfWhatShipByDay_CE,
         df_uptrend_Masters
     )
 
-func_buildCumulativeView(df_newCasesPerDay_ByShip)
+
+if refreshCumulativeViews:
+    func_buildCumulativeView(df_newCasesPerDay_ByShip, "byShip")
+    func_buildCumulativeView(df_newCasesPerDay_ByCpt, "byCpt")
+    func_buildCumulativeView(df_newCasesPerDay_ByCE, "byCE")
+
+print("damn. nice. done")
